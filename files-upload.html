@@ -1,0 +1,39 @@
+<!doctype html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>Document</title>
+    <link rel="stylesheet" href="../../../css/alert.css">
+    <script src="../../jquery-1.9.1.min.js"></script>
+    <script src="files-upload.js"></script>
+</head>
+<body>
+    <div id="filebox1"></div>
+    <script>
+        $(function(){
+            $('#filebox1').nt_FileUpload({
+                confirm: function(picurl){
+                    var data = [];
+                    for(var i= 0,len=picurl.length;i<len;i++){
+                        var json = $.parseJSON(picurl[i].result);
+                        data.push({
+                            alias: picurl[i].name,
+                            dealerId: '300000046',
+                            picType:1,
+                            picUrl:json.key
+                        });
+                    }
+                    console.log(data);
+
+                    nt.postLoadData('/crm/pic/savePicUrlList',data,function(json1){
+                        console.log(json1);
+                    })
+                },
+                cancel: function(){
+
+                }
+            });
+        });
+    </script>
+</body>
+</html>
