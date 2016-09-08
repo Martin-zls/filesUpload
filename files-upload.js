@@ -5,11 +5,154 @@
   var Qiniu_UploadUrl = "http://up.qiniu.com";
   var docpng = '/crm/page/img/icon/doc.png';
   var rarpng = '/crm/page/img/icon/rar.png';
-  var xlspng = '/crm/page/img/icon/doc.png';
+  var xlspng = '/crm/page/img/icon/xls.png';
+  var quality = 0.8;
 
   $.fn.nt_FileUpload = function(option){
 
-    var _this = $(this),picturelist = [],picdata = [],picurl=[],gloableXHr;
+    var _this = $(this),picturelist = [],picdata = [],picurl=[],gloableXHr,uploaderURL=option.uploader||Qiniu_UploadUrl;
+
+    //管理要上传的图片
+    function FileM(){};
+
+    FileM.prototype = {
+      filelist:{length:0},
+      //往列表中存放图片的file对象
+      add: function(file){
+        var _that = this;
+
+        var id = +new Date() + "1" + _that.filelist.length;
+
+        _that.filelist[id] = {
+          file: file,
+          filetype: _that.getFileType(file),
+          big: window.URL.createObjectURL(file)
+        };
+
+        _that.filelist.length++;
+
+        var htmlstr = _that.getPichtml(id,_that.filelist[id].filetype,_that.filelist[id].big);
+        _that.showpicture(id,htmlstr);
+
+        _that.change();
+
+        return id;
+      },
+      delete: function(id){
+        var _that = this;
+        delete _that.filelist[id];
+        _that.filelist.length--;
+        _this.find('.nt-global-file-upload-piclist .picli'+id).remove();
+        _that.change();
+      },
+      change: function(){
+        var _that = this;
+
+        if(_that.filelist.length>0){
+          _this.find('.nt-global-file-upload-checkall-box').show();
+        }else{
+          _this.find('.nt-global-file-upload-checkall-box').hide();
+        }
+      },
+      getallfile: function(){
+        return this.filelist;
+      },
+      //传入file对象，质量quality参数，回调函数cb会返回对应的base64数据
+      fileToBase64: function(file,quality,orientation,cb){
+        var mpImg = new MegaPixImage(file);
+        var resImg = document.getElementById('megapixImage'),data={};
+
+        if(quality) data.quality = quality;
+        if(orientation) data.orientation = orientation;
+
+        mpImg.render(resImg, data ,function(){
+          cb(resImg.src);
+        });
+      },
+      //获取图片的后缀名
+      getFileType: function(file){
+        var fileName = file.name;
+        var fileType = fileName.split('.').pop();
+        return fileType;
+      },
+      //生成图片的html
+      getPichtml: function(id,filetype,filedata){
+        var _that = this;
+        var htmlstr = '';
+        if($.inArray(filetype,['rar','zip','RAR','ZIP'])>=0){
+          htmlstr += '<li class="picli'+id+'"><img src="'+rarpng+'"><span data-item="'+id+'" class="delete">×</span><span class="progress"><span></span></span><span class="speed"></span></li>';
+        }else if($.inArray(filetype,['doc','DOC','docx','DOCX'])>=0){
+          htmlstr += '<li class="picli'+id+'"><img src="'+docpng+'"><span data-item="'+id+'" class="delete">×</span><span class="progress"><span></span></span><span class="speed"></span></li>';
+        }else if($.inArray(filetype,['xls','XLS','xlsx','XLSX'])>=0){
+          htmlstr += '<li class="picli'+id+'"><img src="'+xlspng+'"><span data-item="'+id+'" class="delete">×</span><span class="progress"><span></span></span><span class="speed"></span></li>';
+        }else{
+          htmlstr += '<li class="picli'+id+'"><label for="compression'+id+'"><input class="compression" id="compression'+id+'" data-item="'+id+'" name="compression'+id+'" type="checkbox" '+(_that.filelist[id].quality?'checked="checked"':'')+'><img src="'+filedata+'"><div class="tools"><span data-item="'+id+'" class="rotation">旋转</span><span data-item="'+id+'" class="delete">×</span></div><span class="progress"><span></span></span><span class="speed"></span></label></li>';
+        }
+        return htmlstr;
+      },
+      //把图片htmlstr插入到页面中。
+      showpicture: function(id,htmlstr){
+        if(_this.find('.nt-global-file-upload-piclist .picli'+id).length>0){
+          _this.find('.nt-global-file-upload-piclist .picli'+id).replaceWith(htmlstr);
+        }else{
+          _this.find('.nt-global-file-upload-piclist').append(htmlstr);
+        }
+      },
+      //旋转图片
+      rotationpicture: function(id){
+        var _that = this;
+        var typerotation = {6:3,3:8,8:0,0:6}
+        _that.lock('正在旋转图片！');
+        if(_that.filelist[id].rotation == undefined){
+          _that.filelist[id].rotation = 6;
+        }else{
+          _that.filelist[id].rotation = typerotation[_that.filelist[id].rotation];
+        }
+
+        _that.fileToBase64(_that.filelist[id].file,_that.filelist[id].quality,_that.filelist[id].rotation,function(data){
+          _that.filelist[id].small = data;
+          var htmlstr = _that.getPichtml(id,_that.filelist[id].filetype,data);
+          _that.showpicture(id,htmlstr);
+          _that.open();
+        });
+      },
+      compression: function(id,cb){
+        var _that = this;
+        var file = _that.filelist[id];
+        file.quality = quality;
+
+        _that.fileToBase64(file.file,file.quality,file.rotation,function(data){
+          file.small = data;
+          var htmlstr = _that.getPichtml(id,file.filetype,data);
+          _that.showpicture(id,htmlstr);
+          cb && cb();
+        });
+      },
+      reduction: function(id,cb){
+        var _that = this;
+        delete _that.filelist[id].quality;
+        if(_that.filelist[id].rotation){
+          _that.fileToBase64(_that.filelist[id].file,_that.filelist[id].quality,_that.filelist[id].rotation,function(data){
+            _that.filelist[id].small = data;
+            var htmlstr = _that.getPichtml(id,_that.filelist[id].filetype,data);
+            _that.showpicture(id,htmlstr);
+            cb && cb();
+          });
+        }else{
+          var htmlstr = _that.getPichtml(id,_that.filelist[id].filetype,_that.filelist[id].big);
+          _that.showpicture(id,htmlstr);
+          delete _that.filelist[id].small;
+          cb && cb();
+        }
+      },
+      lock: function(txt){
+        $('.nt-global-file-upload-lock').show().find('.tips').html(txt);
+      },
+      open: function(){
+        $('.nt-global-file-upload-lock').hide().find('.tips').html('');
+      }
+    };
+    var fileManage = new FileM();
 
     //加载css、js的方法
     var dynamicLoading = {
@@ -40,7 +183,7 @@
     function andFileObj(){
       var fileObjstr = '<input style="display: none;" type="file" id="fileInput'+(+ new Date())+'" multiple="multiple">';
       var fileObj = $(fileObjstr);
-      _this.append('<a class="nt-global-file-upload-botton" href="javascript:void(0);">添加文件</a>').append(fileObj);
+      _this.append('<a class="nt-global-file-upload-botton" href="javascript:void(0);">添加文件</a><div class="nt-global-file-upload-checkall-box"><label for="nt-global-file-upload-checkall"><input id="nt-global-file-upload-checkall" type="checkbox">&nbsp;&nbsp;全选</label><span>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<b>TIPS:</b>&nbsp;&nbsp;选中图片，会为对图片进行压缩，节省您的提交时间！</span></div>').append(fileObj);
 
       if(_this.find('#megapixImage').length == 0){
         var imgstr = '<img style="display: none;" id="megapixImage">';
@@ -57,6 +200,10 @@
         _this.append(boxstr);
       }
 
+      _this.css('position','relative');
+      _this.prepend('<div class="nt-global-file-upload-lock"><span class="tips">123123</span></div>');
+
+
       return fileObj;
     }
 
@@ -69,6 +216,7 @@
       }
     }
 
+
     //绑定一些点击事件
     function bingEvent(fileObj,option){
 
@@ -77,155 +225,153 @@
       });
 
       fileObj.on('change',function(){
-        var fileslist = this.files,num = 0;
+        var fileslist = this.files,num = 0,picturenum = {picture:0,file:0,unknow:0,big:0},picfinish=0;
 
         for(var i=0,len=fileslist.length;i<len;i++){
-          if(fileslist[i].size>100000000){
-            if($.fn.nt_tip){
-              $.fn.nt_tip(fileslist[i].name+'文件大小不能大于100M','danger');
-            }else{
-              alert(fileslist[i].name+'文件大小不能大于100M');
-            }
-            continue;
-          }
-
-          (function(i){
-            var checkType = getFileType(fileslist[i])
-
-            if(checkType.result == 'picture'){
-              picturelist[i]=fileslist[i];
-
-              fileToBase64(fileslist[i],function(base64){
-                picdata[i] = base64;
-                num++;
-                if( num == len){
-                  newPicList(picdata);
-                  fileObj.val('');
-                }
-              });
-            }else if(checkType.result == 'file'){
-              picturelist[i]=fileslist[i];
-
-              picdata[i] = checkType.type;
-
-              num++;
-
-              if( num == len){
-                newPicList(picdata);
-                fileObj.val('');
-              }
-            }else{
-              if($.fn.nt_tip){
-                $.fn.nt_tip(fileslist[i].name+'文件格式不能识别','danger');
-              }else{
-                alert(fileslist[i].name+'文件格式不能识别');
-              }
-              num++;
-            }
-
-          }(i));
-
+          fileManage.add(fileslist[i]);
         }
+        fileObj.val('');
       });
 
       _this.on('click','.delete',function(){
         var item = $(this).data('item');
-        picdata.splice(item,1);
-        picturelist.splice(item,1);
+        fileManage.delete(item);
+      });
 
-        if(item == 0){
-          if(gloableXHr){
-            gloableXHr.abort();
-            gloableXHr = null;
-            _this.find('.nt-global-file-upload-confirm-btn').html('继续上传');
-          }
-          newPicList(picdata);
-        }else{
-          _this.find('.nt-global-file-upload-piclist .picli'+item).remove();
-        }
-        _this.find('.nt-global-file-upload-confirm-btn').removeClass('uploading');
-
+      _this.on('click','.rotation',function(){
+        var item = $(this).data('item');
+        fileManage.rotationpicture(item);
+        return false;
       });
 
       _this.on('click','.nt-global-file-upload-cancel-btn',function(){
-        var item = $(this).data('item');
-        picdata = [];
-        picturelist = [];
-        _this.find('.nt-global-file-upload-piclist').html('');
-        fileObj.val('');
+        delete fileManage;
         option.cancel && option.cancel();
       });
 
+      _this.on('change','#nt-global-file-upload-checkall',function(){
+        var value = $(this).prop('checked'),num=0;
+
+        if(value){
+          fileManage.lock('正在压缩图片！');
+        }else{
+          fileManage.lock('正在还原图片！');
+        }
+
+        $('.nt-global-file-upload-piclist [type="checkbox"]').prop('checked',value);
+
+        for (var i in fileManage.filelist){
+          if(i !== 'length'){
+            if(value){
+              fileManage.compression(i,function(){
+                num++;
+
+                if(num == fileManage.filelist.length){
+                  fileManage.open();
+                }
+              });
+            }else{
+              fileManage.reduction(i,function(){
+                num++;
+
+                if(num == fileManage.filelist.length){
+                  fileManage.open();
+                }
+              })
+            }
+
+          }
+        }
+
+      });
+
+      _this.on('change','.nt-global-file-upload-piclist .compression',function(){
+        var value = $(this).prop('checked');
+        var item = $(this).data('item');
+        if(value){
+          fileManage.lock('正在压缩图片！');
+        }else{
+          fileManage.lock('正在还原图片！');
+        }
+        if(value){
+          fileManage.compression(item,function(){
+            fileManage.open();
+          });
+        }else{
+          fileManage.reduction(item,function(){
+            fileManage.open();
+          });
+        }
+      });
+
       _this.on('click','.nt-global-file-upload-confirm-btn',function(){
-        if($(this).hasClass('uploading')){
-          if($.fn.nt_tip){
-            $.fn.nt_tip('正在上传中，请不要重复点击提交','danger');
-          }else{
-            alert('正在上传中，请不要重复点击提交');
+        fileManage.lock('正在为您提交图片！');
+        var filelist = fileManage.filelist,picurl=[],num=0,len = filelist.length;
+        getToken(function(code){
+          if(code){
+            for(var i in filelist){
+              (function(i){
+                if(i !== 'length'){
+
+                  if(filelist[i].rotation || filelist[i].quality){
+                    picUpload(code,filelist[i].small,function(formatSpeed,percentComplete){
+                      $('.picli'+i).addClass('uploading')
+                      $('.picli'+i).find('.progress span').width(percentComplete+"%").html(percentComplete+"%");
+                      $('.picli'+i).find('.speed').html(formatSpeed);
+                    },function(data){
+                      picurl.push({name:filelist[i].file.name,result:data});
+                      fileManage.delete(i);
+                      num++;
+                      isfinish(num,picurl);
+                    },function(error){
+                      $('.picli'+i).find('.progress').addClass('danger').find('span').html('');
+                      $('.picli'+i).find('.speed').html('传输失败，').css('text-align','center');
+                      setTimeout(function(){
+                        fileManage.delete(i);
+                      },800);
+                      num++;
+                      isfinish(num,picurl);
+                    })
+                  }else{
+
+                    filesUpload(code,filelist[i].file,function(formatSpeed,percentComplete){
+                      $('.picli'+i).addClass('uploading')
+                      $('.picli'+i).find('.progress span').width(percentComplete+"%").html(percentComplete+"%");
+                      $('.picli'+i).find('.speed').html(formatSpeed);
+                    },function(data){
+                      picurl.push({name:filelist[i].file.name,result:data});
+                      fileManage.delete(i);
+                      num++;
+                      isfinish(num,picurl);
+                    },function(error){
+                      $('.picli'+i).find('.progress').addClass('danger').find('span').html('');
+                      $('.picli'+i).find('.speed').html('传输失败，').css('text-align','center');
+                      setTimeout(function(){
+                        fileManage.delete(i);
+                      },800);
+                      num++;
+                      isfinish(num,picurl);
+                    });
+                  }
+                }
+              })(i);
+            }
           }
-          return;
-        }
-        if(picdata.length>0){
-          confirmEvent(picdata,option.confirm);
-          $(this).addClass('uploading').html('正在上传');
-          _this.find('.nt-global-file-upload-botton').hide();
-        }else{
-          if($.fn.nt_tip){
-            $.fn.nt_tip('请选择图片！！','danger');
-          }else{
-            alert('请选择图片！！');
+        });
+
+        function isfinish(num,picurl){
+          if(num == len){
+            option.confirm(picurl);
+            fileManage.open();
           }
         }
+
+
       });
 
 
     }
 
-    //把file对象转base64
-    function fileToBase64(file,cb){
-      var mpImg = new MegaPixImage(file);
-      var resImg = document.getElementById('megapixImage');
-      mpImg.render(resImg, { quality: 0.6 },function(){
-        cb(resImg.src);
-      });
-    }
-
-    //传入file对象
-    function getFileType(file){
-      var fileName = file.name;
-      var fileType = fileName.split('.').pop();
-      if($.inArray(fileType,['jpg','JPG','png','PNG'])>=0){
-        return {result:'picture',type:fileType};
-      }else if($.inArray(fileType,['doc','docx','xlsx','xls','rar','zip','DOC','DOCX','XLSX','XLS','RAR','ZIP'])>=0){
-        return {result:'file',type:fileType};
-      }else{
-        return {result:'unknown',type:fileType};
-      }
-    }
-
-    function suffix(file_name){
-      var result =/\.[^\.]+/.exec(file_name);
-      return result;
-    }
-
-    //生成图片列表
-    function newPicList(picdata){
-      var htmlstr = '';
-      for(var i=0,len=picdata.length;i<len;i++){
-        if($.inArray(picdata[i],['rar','zip','RAR','ZIP'])>=0){
-          htmlstr += '<li class="picli'+i+'"><img src="'+rarpng+'"><span data-item="'+i+'" class="delete">×</span><span class="progress"><span></span></span><span class="speed"></span></li>';
-        }else if($.inArray(picdata[i],['doc','DOC','docx','DOCX'])>=0){
-          htmlstr += '<li class="picli'+i+'"><img src="'+docpng+'"><span data-item="'+i+'" class="delete">×</span><span class="progress"><span></span></span><span class="speed"></span></li>';
-        }else if($.inArray(picdata[i],['xls','XLS','xlsx','XLSX'])>=0){
-          htmlstr += '<li class="picli'+i+'"><img src="'+xlspng+'"><span data-item="'+i+'" class="delete">×</span><span class="progress"><span></span></span><span class="speed"></span></li>';
-        }else{
-          htmlstr += '<li class="picli'+i+'"><img src="'+picdata[i]+'"><span data-item="'+i+'" class="delete">×</span><span class="progress"><span></span></span><span class="speed"></span></li>';
-        }
-
-      }
-
-      _this.find('.nt-global-file-upload-piclist').html(htmlstr);
-    }
 
     //获取上传图片的token
     function getToken(cb){
@@ -240,46 +386,18 @@
       });
     }
 
-    //点击确定的时候执行的事件
-    function confirmEvent(picdata,cb){
-
-      getToken(function(code){
-        if(code){
-          linedUp(picdata,code,cb);
-        }
-      });
-    }
-
-    function linedUp(picdata,code,cb){
-      if(picdata.length>0){
-        if($.inArray(picdata[0],['doc','docx','xlsx','xls','rar','zip','DOC','DOCX','XLSX','XLS','RAR','ZIP'])>=0){
-          gloableXHr = filesUpload(code,picdata,picturelist,0,function(){
-            linedUp(picdata,code,cb);
-          });
-        }else{
-          gloableXHr = picUpload(code,picdata,0,function(){
-            linedUp(picdata,code,cb);
-          });
-        }
-      }else{
-        _this.find('.nt-global-file-upload-confirm-btn').removeClass('uploading').html('上传图片');
-        _this.find('.nt-global-file-upload-botton').show();
-        cb && cb(picurl);
-      }
-    }
-
 
 
     //上传图片
-    function picUpload(token,picdata,i,cb){
+    function picUpload(token,picdata,progress,success,error){
       var formdata = new FormData();
       formdata.append("token",token);
       var key = 'jpg_' + new Date().getTime() +  Math.floor((Math.random() * 100000))+'.jpg';
       formdata.append("key", key);
-      var blob = dataURLtoBlob(picdata[i]);
+      var blob = dataURLtoBlob(picdata);
       formdata.append("file", blob);
       var xhr = new XMLHttpRequest();
-      xhr.open('POST', Qiniu_UploadUrl, true);
+      xhr.open('POST', uploaderURL, true);
       var startDate;
       xhr.upload.addEventListener("progress", function(evt) {
         if (evt.lengthComputable) {
@@ -295,32 +413,14 @@
             formatSpeed = uploadSpeed.toFixed(2) + "Kb\/s";
           }
           var percentComplete = Math.round(evt.loaded * 100 / evt.total);
-          $('.picli'+i).addClass('uploading')
-          $('.picli'+i).find('.progress span').width(percentComplete+"%").html(percentComplete+"%");
-          $('.picli'+i).find('.speed').html(formatSpeed);
+          progress && progress(formatSpeed,percentComplete);
         }
       }, false);
       xhr.onreadystatechange = function(response) {
         if (xhr.readyState == 4 && xhr.status == 200 && xhr.responseText != "") {
-          picurl.push({name:picturelist[i].name,result:xhr.responseText});
-          picdata.splice(i,1);
-          picturelist.splice(i,1);
-          newPicList(picdata);
-          cb && cb();
+          success && success(xhr.responseText);
         } else if (xhr.status != 200 && xhr.responseText) {
-          picdata.splice(i,1);
-          picturelist.splice(i,1);
-          $('.picli'+i).find('.progress').addClass('danger').find('span').html('');
-          $('.picli'+i).find('.speed').html('传输失败，').css('text-align','center');
-          if($.fn.nt_tip){
-            $.fn.nt_tip('传输失败，请稍后重试','danger');
-          }else{
-            alert('传输失败，请稍后重试');
-          }
-          setTimeout(function(){
-            newPicList(picdata);
-            cb && cb();
-          },800);
+          error && error(xhr.responseText);
         }
       };
       startDate = new Date().getTime();
@@ -328,15 +428,15 @@
       return xhr;
     }
 
-    function filesUpload(token,picdata,picturelist,i,cb){
+    function filesUpload(token,file,progress,success,error){
       var formdata = new FormData();
       formdata.append("token",token);
-      var key = picdata[i]+'_' + new Date().getTime() +  Math.floor((Math.random() * 100000))+'.'+picdata[i];
+      var key = fileManage.getFileType(file)+'_' + new Date().getTime() +  Math.floor((Math.random() * 100000))+'.'+fileManage.getFileType(file);
       formdata.append("key", key);
-      formdata.append("file", picturelist[i]);
+      formdata.append("file", file);
 
       var xhr = new XMLHttpRequest();
-      xhr.open('POST', Qiniu_UploadUrl, true);
+      xhr.open('POST', uploaderURL, true);
       var startDate;
       xhr.upload.addEventListener("progress", function(evt) {
         if (evt.lengthComputable) {
@@ -352,32 +452,14 @@
             formatSpeed = uploadSpeed.toFixed(2) + "Kb\/s";
           }
           var percentComplete = Math.round(evt.loaded * 100 / evt.total);
-          $('.picli'+i).addClass('uploading')
-          $('.picli'+i).find('.progress span').width(percentComplete+"%").html(percentComplete+"%");
-          $('.picli'+i).find('.speed').html(formatSpeed);
+          progress && progress(formatSpeed,percentComplete);
         }
       }, false);
       xhr.onreadystatechange = function(response) {
         if (xhr.readyState == 4 && xhr.status == 200 && xhr.responseText != "") {
-          picurl.push({name:picturelist[i].name,result:xhr.responseText});
-          picdata.splice(i,1);
-          picturelist.splice(i,1);
-          newPicList(picdata);
-          cb && cb();
+          success && success(xhr.responseText);
         } else if (xhr.status != 200 && xhr.responseText) {
-          picdata.splice(i,1);
-          picturelist.splice(i,1);
-          $('.picli'+i).find('.progress').addClass('danger').find('span').html('');
-          $('.picli'+i).find('.speed').html('传输失败').css('text-align','center');
-          if($.fn.nt_tip){
-            $.fn.nt_tip('传输失败，请稍后重试','danger');
-          }else{
-            alert('传输失败，请稍后重试');
-          }
-          setTimeout(function(){
-            newPicList(picdata);
-            cb && cb();
-          },800);
+          error && error(xhr.responseText);
         }
       };
       startDate = new Date().getTime();
@@ -397,6 +479,7 @@
       }
       return new Blob([u8arr], {type:mime});
     }
+
 
     //初始化事件
     function init(option){
