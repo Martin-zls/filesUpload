@@ -38,6 +38,7 @@
 
         return id;
       },
+      //在表中删除相应的图片
       delete: function(id){
         var _that = this;
         delete _that.filelist[id];
@@ -116,9 +117,19 @@
           _that.open();
         });
       },
+      // 压缩图片的方法
       compression: function(id,cb){
         var _that = this;
         var file = _that.filelist[id];
+
+
+        //要判断文件是不是图片，只有图片才需要压缩。
+        if(!(['png','PNG','jpg','JPG','jpeg','JPEG'].indexOf(file.filetype)>=0)){
+          cb && cb();
+          return false;
+        }
+
+
         file.quality = quality;
 
         _that.fileToBase64(file.file,file.quality,file.rotation,function(data){
@@ -128,6 +139,7 @@
           cb && cb();
         });
       },
+      // 还原图片的方法
       reduction: function(id,cb){
         var _that = this;
         delete _that.filelist[id].quality;
@@ -305,6 +317,12 @@
       });
 
       _this.on('click','.nt-global-file-upload-confirm-btn',function(){
+        var filelist = fileManage.filelist,picurl=[],num=0,len = filelist.length;
+        if(filelist.length==0){
+          alert('请选择图片');
+          return false;
+        }
+
         fileManage.lock('正在为您提交图片！');
         var filelist = fileManage.filelist,picurl=[],num=0,len = filelist.length;
         getToken(function(code){
