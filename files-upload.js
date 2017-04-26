@@ -81,11 +81,11 @@
         var _that = this;
         var htmlstr = '';
         if($.inArray(filetype,['rar','zip','RAR','ZIP'])>=0){
-          htmlstr += '<li class="picli'+id+'"><img src="'+rarpng+'"><span data-item="'+id+'" class="delete">×</span><span class="progress"><span></span></span><span class="speed"></span></li>';
+          htmlstr += '<li class="picli'+id+'"><img src="'+rarpng+'"><div class="tools"><span data-item="'+id+'" class="delete">×</span></div><span class="progress"><span></span></span><span class="speed"></span></li>';
         }else if($.inArray(filetype,['doc','DOC','docx','DOCX'])>=0){
-          htmlstr += '<li class="picli'+id+'"><img src="'+docpng+'"><span data-item="'+id+'" class="delete">×</span><span class="progress"><span></span></span><span class="speed"></span></li>';
+          htmlstr += '<li class="picli'+id+'"><img src="'+docpng+'"><div class="tools"><span data-item="'+id+'" class="delete">×</span></div><span class="progress"><span></span></span><span class="speed"></span></li>';
         }else if($.inArray(filetype,['xls','XLS','xlsx','XLSX'])>=0){
-          htmlstr += '<li class="picli'+id+'"><img src="'+xlspng+'"><span data-item="'+id+'" class="delete">×</span><span class="progress"><span></span></span><span class="speed"></span></li>';
+          htmlstr += '<li class="picli'+id+'"><img src="'+xlspng+'"><div class="tools"><span data-item="'+id+'" class="delete">×</span></div><span class="progress"><span></span></span><span class="speed"></span></li>';
         }else{
           htmlstr += '<li class="picli'+id+'"><label for="compression'+id+'"><input class="compression" id="compression'+id+'" data-item="'+id+'" name="compression'+id+'" type="checkbox" '+(_that.filelist[id].quality?'checked="checked"':'')+'><img src="'+filedata+'"><div class="tools"><span data-item="'+id+'" class="rotation">旋转</span><span data-item="'+id+'" class="delete">×</span></div><span class="progress"><span></span></span><span class="speed"></span></label></li>';
         }
